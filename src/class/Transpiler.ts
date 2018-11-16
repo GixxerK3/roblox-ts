@@ -10,7 +10,7 @@ import {
 import { Compiler } from "./Compiler";
 import { TranspilerError, TranspilerErrorType } from "./errors/TranspilerError";
 
-type HasParameters =
+export type HasParameters =
 	| ts.FunctionExpression
 	| ts.ArrowFunction
 	| ts.FunctionDeclaration
@@ -20,7 +20,7 @@ type HasParameters =
 	| ts.SetAccessorDeclaration;
 
 // used for the typeof operator
-const RBX_CLASSES = [
+export const RBX_CLASSES = [
 	"Axes",
 	"BrickColor",
 	"CFrame",
@@ -51,7 +51,7 @@ const RBX_CLASSES = [
 	"RBXScriptSignal",
 ];
 
-const STRING_MACRO_METHODS = [
+export const STRING_MACRO_METHODS = [
 	"byte",
 	"find",
 	"format",
@@ -66,11 +66,11 @@ const STRING_MACRO_METHODS = [
 	"upper",
 ];
 
-const RBX_MATH_CLASSES = ["CFrame", "UDim", "UDim2", "Vector2", "Vector2int16", "Vector3", "Vector3int16"];
+export const RBX_MATH_CLASSES = ["CFrame", "UDim", "UDim2", "Vector2", "Vector2int16", "Vector3", "Vector3int16"];
 
-const RUNTIME_CLASSES = ["Promise", "Symbol"];
+export const RUNTIME_CLASSES = ["Promise", "Symbol"];
 
-const LUA_RESERVED_KEYWORDS = [
+export const LUA_RESERVED_KEYWORDS = [
 	"and",
 	"break",
 	"do",
@@ -94,7 +94,7 @@ const LUA_RESERVED_KEYWORDS = [
 	"while",
 ];
 
-const LUA_RESERVED_METAMETHODS = [
+export const LUA_RESERVED_METAMETHODS = [
 	"__index",
 	"__newindex",
 	"__add",
@@ -115,14 +115,14 @@ const LUA_RESERVED_METAMETHODS = [
 	"__mode",
 ];
 
-const LUA_UNDEFINABLE_METAMETHODS = ["__index", "__newindex", "__mode"];
+export const LUA_UNDEFINABLE_METAMETHODS = ["__index", "__newindex", "__mode"];
 
-function isRbxClassType(type: ts.Type) {
+export function isRbxClassType(type: ts.Type) {
 	const symbol = type.getSymbol();
 	return symbol !== undefined && RBX_CLASSES.indexOf(symbol.getName()) !== -1;
 }
 
-function getLuaAddExpression(node: ts.BinaryExpression, lhsStr: string, rhsStr: string, wrap = false) {
+export function getLuaAddExpression(node: ts.BinaryExpression, lhsStr: string, rhsStr: string, wrap = false) {
 	if (wrap) {
 		rhsStr = `(${rhsStr})`;
 	}
@@ -140,7 +140,7 @@ function getLuaAddExpression(node: ts.BinaryExpression, lhsStr: string, rhsStr: 
 	}
 }
 
-function inheritsFrom(type: ts.Type, className: string): boolean {
+export function inheritsFrom(type: ts.Type, className: string): boolean {
 	const symbol = type.getSymbol();
 	return symbol !== undefined
 		? symbol.getName() === className ||
@@ -153,19 +153,19 @@ function inheritsFrom(type: ts.Type, className: string): boolean {
 		: false;
 }
 
-function getConstructor(node: ts.ClassDeclaration) {
+export function getConstructor(node: ts.ClassDeclaration) {
 	for (const constructor of node.getConstructors()) {
 		return constructor;
 	}
 }
 
-function isBindingPattern(node: ts.Node) {
+export function isBindingPattern(node: ts.Node) {
 	return (
 		node.getKind() === ts.SyntaxKind.ArrayBindingPattern || node.getKind() === ts.SyntaxKind.ObjectBindingPattern
 	);
 }
 
-function getClassMethod(classDec: ts.ClassDeclaration, methodName: string): ts.MethodDeclaration | undefined {
+export function getClassMethod(classDec: ts.ClassDeclaration, methodName: string): ts.MethodDeclaration | undefined {
 	const method = classDec.getMethod(methodName);
 	if (method) {
 		return method;
@@ -180,7 +180,7 @@ function getClassMethod(classDec: ts.ClassDeclaration, methodName: string): ts.M
 	return undefined;
 }
 
-function isType(node: ts.Node) {
+export function isType(node: ts.Node) {
 	return (
 		ts.TypeGuards.isEmptyStatement(node) ||
 		ts.TypeGuards.isTypeAliasDeclaration(node) ||
@@ -190,24 +190,24 @@ function isType(node: ts.Node) {
 }
 
 export class Transpiler {
-	private hoistStack = new Array<Array<string>>();
-	private exportStack = new Array<Array<string>>();
-	private namespaceStack = new Array<string>();
-	private idStack = new Array<number>();
-	private continueId = -1;
-	private isModule = false;
-	private indent = "";
-	private scriptContext = ScriptContext.None;
+	protected hoistStack = new Array<Array<string>>();
+	protected exportStack = new Array<Array<string>>();
+	protected namespaceStack = new Array<string>();
+	protected idStack = new Array<number>();
+	protected continueId = -1;
+	protected isModule = false;
+	protected indent = "";
+	protected scriptContext = ScriptContext.None;
 
-	constructor(private compiler: Compiler) {}
+	constructor(protected compiler: Compiler) {}
 
-	private getNewId() {
+	protected getNewId() {
 		const sum = this.idStack.reduce((accum, value) => accum + value);
 		this.idStack[this.idStack.length - 1]++;
 		return `_${sum}`;
 	}
 
-	private checkReserved(name: string, node: ts.Node) {
+	protected checkReserved(name: string, node: ts.Node) {
 		if (LUA_RESERVED_KEYWORDS.indexOf(name) !== -1) {
 			throw new TranspilerError(
 				`Cannot use reserved Lua keyword as identifier '${name}'`,
@@ -217,7 +217,7 @@ export class Transpiler {
 		}
 	}
 
-	private checkMethodReserved(name: string, node: ts.Node) {
+	protected checkMethodReserved(name: string, node: ts.Node) {
 		if (LUA_RESERVED_METAMETHODS.indexOf(name) !== -1) {
 			throw new TranspilerError(
 				`Cannot use reserved Lua metamethod as identifier '${name}'`,
@@ -227,23 +227,23 @@ export class Transpiler {
 		}
 	}
 
-	private pushIdStack() {
+	protected pushIdStack() {
 		this.idStack.push(0);
 	}
 
-	private popIdStack() {
+	protected popIdStack() {
 		this.idStack.pop();
 	}
 
-	private pushIndent() {
+	protected pushIndent() {
 		this.indent += "\t";
 	}
 
-	private popIndent() {
+	protected popIndent() {
 		this.indent = this.indent.substr(1);
 	}
 
-	private pushExport(name: string, node: ts.Node & ts.ExportableNode) {
+	protected pushExport(name: string, node: ts.Node & ts.ExportableNode) {
 		if (!node.isExported()) {
 			return;
 		}
@@ -259,7 +259,7 @@ export class Transpiler {
 		this.exportStack[this.exportStack.length - 1].push(`${ancestorName}.${alias} = ${name};\n`);
 	}
 
-	private getBindingData(
+	protected getBindingData(
 		names: Array<string>,
 		values: Array<string>,
 		preStatements: Array<string>,
@@ -317,7 +317,7 @@ export class Transpiler {
 		}
 	}
 
-	private getParameterData(
+	protected getParameterData(
 		paramNames: Array<string>,
 		initializers: Array<string>,
 		node: HasParameters,
@@ -389,7 +389,7 @@ export class Transpiler {
 		}
 	}
 
-	private hasContinue(node: ts.Node) {
+	protected hasContinue(node: ts.Node) {
 		for (const child of node.getChildren()) {
 			if (ts.TypeGuards.isContinueStatement(child)) {
 				return true;
@@ -411,7 +411,7 @@ export class Transpiler {
 		return false;
 	}
 
-	private containsSuperExpression(child?: ts.Statement<ts.ts.Statement>) {
+	protected containsSuperExpression(child?: ts.Statement<ts.ts.Statement>) {
 		if (child && ts.TypeGuards.isExpressionStatement(child)) {
 			const exp = child.getExpression();
 			if (ts.TypeGuards.isCallExpression(exp)) {
@@ -424,7 +424,7 @@ export class Transpiler {
 		return false;
 	}
 
-	private transpileStatementedNode(node: ts.Node & ts.StatementedNode) {
+	protected transpileStatementedNode(node: ts.Node & ts.StatementedNode) {
 		this.pushIdStack();
 		this.exportStack.push(new Array<string>());
 		let result = "";
@@ -449,7 +449,7 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileBlock(node: ts.Block) {
+	protected transpileBlock(node: ts.Block) {
 		let result = "";
 		const parent = node.getParentIfKind(ts.SyntaxKind.SourceFile) || node.getParentIfKind(ts.SyntaxKind.Block);
 		if (parent) {
@@ -464,11 +464,11 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileArguments(args: Array<ts.Expression>, context?: ts.Expression) {
+	protected transpileArguments(args: Array<ts.Expression>, context?: ts.Expression) {
 		return args.map(arg => this.transpileExpression(arg)).join(", ");
 	}
 
-	private transpileIdentifier(node: ts.Identifier) {
+	protected transpileIdentifier(node: ts.Identifier) {
 		let name = node.getText();
 		if (name === "undefined") {
 			return "nil";
@@ -480,7 +480,7 @@ export class Transpiler {
 		return name;
 	}
 
-	private transpileStatement(node: ts.Statement): string {
+	protected transpileStatement(node: ts.Statement): string {
 		if (isType(node)) {
 			return "";
 		} else if (ts.TypeGuards.isBlock(node)) {
@@ -542,7 +542,7 @@ export class Transpiler {
 		}
 	}
 
-	private transpileImportDeclaration(node: ts.ImportDeclaration) {
+	protected transpileImportDeclaration(node: ts.ImportDeclaration) {
 		let luaPath: string;
 		if (node.isModuleSpecifierRelative()) {
 			luaPath = this.compiler.getRelativeImportPath(
@@ -601,7 +601,7 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileImportEqualsDeclaration(node: ts.ImportEqualsDeclaration) {
+	protected transpileImportEqualsDeclaration(node: ts.ImportEqualsDeclaration) {
 		let luaPath: string;
 		const moduleFile = node.getExternalModuleReferenceSourceFile();
 		if (moduleFile) {
@@ -627,7 +627,7 @@ export class Transpiler {
 		return this.indent + `local ${name} = ${luaPath};\n`;
 	}
 
-	private transpileExportDeclaration(node: ts.ExportDeclaration) {
+	protected transpileExportDeclaration(node: ts.ExportDeclaration) {
 		let luaPath: string = "";
 		const moduleSpecifier = node.getModuleSpecifier();
 		if (moduleSpecifier) {
@@ -708,7 +708,7 @@ export class Transpiler {
 		}
 	}
 
-	private transpileDoStatement(node: ts.DoStatement) {
+	protected transpileDoStatement(node: ts.DoStatement) {
 		const condition = this.transpileExpression(node.getExpression());
 		let result = "";
 		result += this.indent + "repeat\n";
@@ -719,9 +719,11 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileIfStatement(node: ts.IfStatement) {
+	protected transpileIfStatement(node: ts.IfStatement) {
 		let result = "";
-		const expStr = this.transpileExpression(node.getExpression());
+		// const expStr = this.transpileExpression(node.getExpression());
+		const conditionExp = node.getExpression();
+		const expStr = this.transpileExpression(conditionExp);
 		result += this.indent + `if ${expStr} then\n`;
 		this.pushIndent();
 		result += this.transpileStatement(node.getThenStatement());
@@ -745,14 +747,14 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileBreakStatement(node: ts.BreakStatement) {
+	protected transpileBreakStatement(node: ts.BreakStatement) {
 		if (node.getLabel()) {
 			throw new TranspilerError("Break labels are not supported!", node, TranspilerErrorType.NoLabeledStatement);
 		}
 		return this.indent + "break;\n";
 	}
 
-	private transpileExpressionStatement(node: ts.ExpressionStatement) {
+	protected transpileExpressionStatement(node: ts.ExpressionStatement) {
 		// big set of rules for expression statements
 		const expression = node.getExpression();
 		if (
@@ -785,7 +787,7 @@ export class Transpiler {
 		return this.indent + this.transpileExpression(expression) + ";\n";
 	}
 
-	private transpileLoopBody(node: ts.Statement) {
+	protected transpileLoopBody(node: ts.Statement) {
 		const hasContinue = this.hasContinue(node);
 
 		let result = "";
@@ -813,7 +815,7 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileContinueStatement(node: ts.ContinueStatement) {
+	protected transpileContinueStatement(node: ts.ContinueStatement) {
 		if (node.getLabel()) {
 			throw new TranspilerError(
 				"Continue labels are not supported!",
@@ -824,7 +826,7 @@ export class Transpiler {
 		return this.indent + `_continue_${this.continueId} = true; break;\n`;
 	}
 
-	private transpileForInStatement(node: ts.ForInStatement) {
+	protected transpileForInStatement(node: ts.ForInStatement) {
 		this.pushIdStack();
 		const init = node.getInitializer();
 		let varName = "";
@@ -867,7 +869,7 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileForOfStatement(node: ts.ForOfStatement) {
+	protected transpileForOfStatement(node: ts.ForOfStatement) {
 		this.pushIdStack();
 		const init = node.getInitializer();
 		let varName = "";
@@ -916,7 +918,7 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileForStatement(node: ts.ForStatement) {
+	protected transpileForStatement(node: ts.ForStatement) {
 		const condition = node.getCondition();
 		const conditionStr = condition ? this.transpileExpression(condition) : "true";
 		const incrementor = node.getIncrementor();
@@ -953,7 +955,7 @@ export class Transpiler {
 		return result;
 	}
 
-	private getFirstFunctionLikeAncestor(node: ts.Node): ts.FunctionLikeDeclaration | undefined {
+	protected getFirstFunctionLikeAncestor(node: ts.Node): ts.FunctionLikeDeclaration | undefined {
 		for (const ancestor of node.getAncestors()) {
 			if (
 				ts.TypeGuards.isFunctionDeclaration(ancestor) ||
@@ -967,7 +969,7 @@ export class Transpiler {
 		return undefined;
 	}
 
-	private transpileReturnStatement(node: ts.ReturnStatement) {
+	protected transpileReturnStatement(node: ts.ReturnStatement) {
 		const exp = node.getExpression();
 		if (exp) {
 			let expStr = this.transpileExpression(exp);
@@ -988,12 +990,12 @@ export class Transpiler {
 		}
 	}
 
-	private transpileThrowStatement(node: ts.ThrowStatement) {
+	protected transpileThrowStatement(node: ts.ThrowStatement) {
 		const expStr = this.transpileExpression(node.getExpressionOrThrow());
 		return this.indent + `error(${expStr});\n`;
 	}
 
-	private transpileVariableDeclarationList(node: ts.VariableDeclarationList) {
+	protected transpileVariableDeclarationList(node: ts.VariableDeclarationList) {
 		if (node.getDeclarationKind() === ts.VariableDeclarationKind.Var) {
 			throw new TranspilerError(
 				"'var' keyword is not supported! Use 'let' or 'const' instead.",
@@ -1098,12 +1100,12 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileVariableStatement(node: ts.VariableStatement) {
+	protected transpileVariableStatement(node: ts.VariableStatement) {
 		const list = node.getFirstChildByKindOrThrow(ts.SyntaxKind.VariableDeclarationList);
 		return this.transpileVariableDeclarationList(list);
 	}
 
-	private transpileWhileStatement(node: ts.WhileStatement) {
+	protected transpileWhileStatement(node: ts.WhileStatement) {
 		const expStr = this.transpileExpression(node.getExpression());
 		let result = "";
 		result += this.indent + `while ${expStr} do\n`;
@@ -1114,7 +1116,7 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileFunctionDeclaration(node: ts.FunctionDeclaration) {
+	protected transpileFunctionDeclaration(node: ts.FunctionDeclaration) {
 		const name = node.getNameOrThrow();
 		this.checkReserved(name, node);
 		this.pushExport(name, node);
@@ -1149,7 +1151,7 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileClassDeclaration(node: ts.ClassDeclaration) {
+	protected transpileClassDeclaration(node: ts.ClassDeclaration) {
 		const name = node.getName() || this.getNewId();
 		const nameNode = node.getNameNode();
 		if (nameNode) {
@@ -1412,7 +1414,7 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileConstructorDeclaration(
+	protected transpileConstructorDeclaration(
 		className: string,
 		node?: ts.ConstructorDeclaration,
 		extraInitializers?: Array<string>,
@@ -1482,7 +1484,7 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileAccessorDeclaration(node: ts.GetAccessorDeclaration | ts.SetAccessorDeclaration, name: string) {
+	protected transpileAccessorDeclaration(node: ts.GetAccessorDeclaration | ts.SetAccessorDeclaration, name: string) {
 		const body = node.getBody();
 		if (!body) {
 			return "";
@@ -1506,7 +1508,7 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileMethodDeclaration(node: ts.MethodDeclaration) {
+	protected transpileMethodDeclaration(node: ts.MethodDeclaration) {
 		const name = node.getName();
 		this.checkReserved(name, node);
 		const body = node.getBodyOrThrow();
@@ -1535,7 +1537,7 @@ export class Transpiler {
 		return result;
 	}
 
-	private isTypeOnlyNamespace(node: ts.NamespaceDeclaration) {
+	protected isTypeOnlyNamespace(node: ts.NamespaceDeclaration) {
 		const statements = node.getStatements();
 		for (const statement of statements) {
 			if (!ts.TypeGuards.isNamespaceDeclaration(statement) && !isType(statement)) {
@@ -1550,7 +1552,7 @@ export class Transpiler {
 		return true;
 	}
 
-	private transpileNamespaceDeclaration(node: ts.NamespaceDeclaration) {
+	protected transpileNamespaceDeclaration(node: ts.NamespaceDeclaration) {
 		if (this.isTypeOnlyNamespace(node)) {
 			return "";
 		}
@@ -1572,7 +1574,7 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileEnumDeclaration(node: ts.EnumDeclaration) {
+	protected transpileEnumDeclaration(node: ts.EnumDeclaration) {
 		let result = "";
 		if (node.isConstEnum()) {
 			return result;
@@ -1610,7 +1612,7 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileExportAssignment(node: ts.ExportAssignment) {
+	protected transpileExportAssignment(node: ts.ExportAssignment) {
 		let result = "";
 		if (node.isExportEquals()) {
 			this.isModule = true;
@@ -1620,7 +1622,7 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileSwitchStatement(node: ts.SwitchStatement) {
+	protected transpileSwitchStatement(node: ts.SwitchStatement) {
 		const expStr = this.transpileExpression(node.getExpression());
 		let result = "";
 		result += this.indent + `repeat\n`;
@@ -1659,7 +1661,7 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileExpression(node: ts.Expression): string {
+	protected transpileExpression(node: ts.Expression): string {
 		if (ts.TypeGuards.isStringLiteral(node) || ts.TypeGuards.isNoSubstitutionTemplateLiteral(node)) {
 			return this.transpileStringLiteral(node);
 		} else if (ts.TypeGuards.isNumericLiteral(node)) {
@@ -1731,7 +1733,7 @@ export class Transpiler {
 		}
 	}
 
-	private transpileStringLiteral(node: ts.StringLiteral | ts.NoSubstitutionTemplateLiteral) {
+	protected transpileStringLiteral(node: ts.StringLiteral | ts.NoSubstitutionTemplateLiteral) {
 		let text = node.getText();
 		if (text.startsWith("`") && text.endsWith("`")) {
 			text = text.slice(1, -1).replace(/"/g, '\\"');
@@ -1741,7 +1743,7 @@ export class Transpiler {
 		return text;
 	}
 
-	private transpileNumericLiteral(node: ts.NumericLiteral) {
+	protected transpileNumericLiteral(node: ts.NumericLiteral) {
 		const text = node.getText();
 		if (text.indexOf("e") !== -1) {
 			return text;
@@ -1749,11 +1751,11 @@ export class Transpiler {
 		return node.getLiteralValue().toString();
 	}
 
-	private transpileBooleanLiteral(node: ts.BooleanLiteral) {
+	protected transpileBooleanLiteral(node: ts.BooleanLiteral) {
 		return node.getLiteralValue() === true ? "true" : "false";
 	}
 
-	private transpileArrayLiteralExpression(node: ts.ArrayLiteralExpression) {
+	protected transpileArrayLiteralExpression(node: ts.ArrayLiteralExpression) {
 		const elements = node.getElements();
 		if (elements.length === 0) {
 			return "{}";
@@ -1785,7 +1787,7 @@ export class Transpiler {
 		}
 	}
 
-	private transpileObjectLiteralExpression(node: ts.ObjectLiteralExpression) {
+	protected transpileObjectLiteralExpression(node: ts.ObjectLiteralExpression) {
 		const properties = node.getProperties();
 		if (properties.length === 0) {
 			return "{}";
@@ -1871,7 +1873,7 @@ export class Transpiler {
 		}
 	}
 
-	private transpileFunctionExpression(node: ts.FunctionExpression | ts.ArrowFunction) {
+	protected transpileFunctionExpression(node: ts.FunctionExpression | ts.ArrowFunction) {
 		const body = node.getBody();
 		const paramNames = new Array<string>();
 		const initializers = new Array<string>();
@@ -1906,7 +1908,7 @@ export class Transpiler {
 		return result;
 	}
 
-	private transpileCallExpression(node: ts.CallExpression) {
+	protected transpileCallExpression(node: ts.CallExpression) {
 		const exp = node.getExpression();
 		if (ts.TypeGuards.isPropertyAccessExpression(exp)) {
 			return this.transpilePropertyCallExpression(node);
@@ -1928,7 +1930,7 @@ export class Transpiler {
 		}
 	}
 
-	private transpilePropertyCallExpression(node: ts.CallExpression) {
+	protected transpilePropertyCallExpression(node: ts.CallExpression) {
 		const expression = node.getExpression();
 		if (!ts.TypeGuards.isPropertyAccessExpression(expression)) {
 			throw new TranspilerError(
@@ -2049,7 +2051,7 @@ export class Transpiler {
 		return `${accessPath}${sep}${property}(${params})`;
 	}
 
-	private transpileBinaryExpression(node: ts.BinaryExpression) {
+	protected transpileBinaryExpression(node: ts.BinaryExpression) {
 		const opToken = node.getOperatorToken();
 		const opKind = opToken.getKind();
 
@@ -2186,7 +2188,7 @@ export class Transpiler {
 		}
 	}
 
-	private transpilePrefixUnaryExpression(node: ts.PrefixUnaryExpression) {
+	protected transpilePrefixUnaryExpression(node: ts.PrefixUnaryExpression) {
 		const parent = node.getParentOrThrow();
 		const operand = node.getOperand();
 
@@ -2245,7 +2247,7 @@ export class Transpiler {
 		);
 	}
 
-	private transpilePostfixUnaryExpression(node: ts.PostfixUnaryExpression) {
+	protected transpilePostfixUnaryExpression(node: ts.PostfixUnaryExpression) {
 		const parent = node.getParentOrThrow();
 		const operand = node.getOperand();
 
@@ -2299,7 +2301,7 @@ export class Transpiler {
 		);
 	}
 
-	private transpileNewExpression(node: ts.NewExpression) {
+	protected transpileNewExpression(node: ts.NewExpression) {
 		if (!node.getFirstChildByKind(ts.SyntaxKind.OpenParenToken)) {
 			throw new TranspilerError(
 				"Parentheses-less new expressions not allowed!",
@@ -2355,7 +2357,7 @@ export class Transpiler {
 		return `${name}.new(${params})`;
 	}
 
-	private getJSDocs(node: ts.Node) {
+	protected getJSDocs(node: ts.Node) {
 		const symbol = node.getSymbol();
 		if (symbol) {
 			const valDec = symbol.getValueDeclaration();
@@ -2368,7 +2370,7 @@ export class Transpiler {
 		return [];
 	}
 
-	private hasDirective(node: ts.Node, directive: string) {
+	protected hasDirective(node: ts.Node, directive: string) {
 		for (const jsDoc of this.getJSDocs(node)) {
 			if (
 				jsDoc
@@ -2382,7 +2384,7 @@ export class Transpiler {
 		return false;
 	}
 
-	private validateApiAccess(node: ts.Node) {
+	protected validateApiAccess(node: ts.Node) {
 		if (this.compiler.noHeuristics) {
 			return;
 		}
@@ -2405,7 +2407,7 @@ export class Transpiler {
 		}
 	}
 
-	private transpilePropertyAccessExpression(node: ts.PropertyAccessExpression) {
+	protected transpilePropertyAccessExpression(node: ts.PropertyAccessExpression) {
 		const exp = node.getExpression();
 		const expType = exp.getType();
 		const expStr = this.transpileExpression(exp);
@@ -2468,12 +2470,12 @@ export class Transpiler {
 		return `${expStr}.${propertyStr}`;
 	}
 
-	private transpileParenthesizedExpression(node: ts.ParenthesizedExpression) {
+	protected transpileParenthesizedExpression(node: ts.ParenthesizedExpression) {
 		const expStr = this.transpileExpression(node.getExpression());
 		return `(${expStr})`;
 	}
 
-	private transpileTemplateExpression(node: ts.TemplateExpression) {
+	protected transpileTemplateExpression(node: ts.TemplateExpression) {
 		const bin = new Array<string>();
 
 		const headText = node
@@ -2507,7 +2509,7 @@ export class Transpiler {
 		return bin.join(" .. ");
 	}
 
-	private transpileElementAccessExpression(node: ts.ElementAccessExpression) {
+	protected transpileElementAccessExpression(node: ts.ElementAccessExpression) {
 		const expNode = node.getExpression();
 		const expType = expNode.getType();
 		const expStr = this.transpileExpression(expNode);
@@ -2544,24 +2546,24 @@ export class Transpiler {
 		}
 	}
 
-	private transpileAwaitExpression(node: ts.AwaitExpression) {
+	protected transpileAwaitExpression(node: ts.AwaitExpression) {
 		const expStr = this.transpileExpression(node.getExpression());
 		return `TS.await(${expStr})`;
 	}
 
-	private transpileConditionalExpression(node: ts.ConditionalExpression) {
+	protected transpileConditionalExpression(node: ts.ConditionalExpression) {
 		const conditionStr = this.transpileExpression(node.getCondition());
 		const trueStr = this.transpileExpression(node.getWhenTrue());
 		const falseStr = this.transpileExpression(node.getWhenFalse());
 		return `(${conditionStr} and function() return ${trueStr} end or function() return ${falseStr} end)()`;
 	}
 
-	private transpileTypeOfExpression(node: ts.TypeOfExpression) {
+	protected transpileTypeOfExpression(node: ts.TypeOfExpression) {
 		const expStr = this.transpileExpression(node.getExpression());
 		return `TS.typeof(${expStr})`;
 	}
 
-	private transpileSpreadElement(node: ts.SpreadElement) {
+	protected transpileSpreadElement(node: ts.SpreadElement) {
 		const expStr = this.transpileExpression(node.getExpression());
 		return `unpack(${expStr})`;
 	}

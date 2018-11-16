@@ -14,6 +14,7 @@ import { CompilerError, CompilerErrorType } from "./errors/CompilerError";
 import { DiagnosticError } from "./errors/DiagnosticError";
 import { TranspilerError } from "./errors/TranspilerError";
 import { Transpiler } from "./Transpiler";
+import { RbxJsTranspiler } from "./RbxJsTranspiler";
 
 const INCLUDE_SRC_PATH = path.resolve(__dirname, "..", "..", "include");
 const SYNC_FILE_NAMES = ["rojo.json", "rofresh.json"];
@@ -391,7 +392,8 @@ export class Compiler {
 			const sources = files
 				.filter(sourceFile => !sourceFile.isDeclarationFile())
 				.map(sourceFile => {
-					const transpiler = new Transpiler(this);
+					// const transpiler = new Transpiler(this);
+					const transpiler = new RbxJsTranspiler(this);
 					return [
 						this.transformPathToLua(sourceFile.getFilePath()),
 						transpiler.transpileSourceFile(sourceFile, this.noHeader),
